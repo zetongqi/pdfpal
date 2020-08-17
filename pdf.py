@@ -1,28 +1,29 @@
 import os
 import wx
-
 from PIL import Image
 from wx.lib.pubsub import pub 
 import os
 from PIL import Image
+from variables import current_img
 
 PhotoMaxSize = 240
 
 files = []
 
 class DropTarget(wx.FileDropTarget):
-
     def __init__(self, widget):
         wx.FileDropTarget.__init__(self)
         self.widget = widget
 
     def OnDropFiles(self, x, y, filenames):
         files.append(filenames[0])
+        print(current_img)
 
         image = Image.open(filenames[0])
         image.thumbnail((PhotoMaxSize, PhotoMaxSize))
         image.save('thumbnail.png')
         pub.sendMessage('dnd', filepath='thumbnail.png')
+        pub.sendMessage('file', current_img=filenames[0])
         return True
 
 
@@ -33,11 +34,16 @@ class PhotoCtrl(wx.App):
 
         self.panel = wx.Panel(self.frame)
         pub.subscribe(self.update_image_on_dnd, 'dnd')
+        pub.subscribe(self.update_current_img, 'file')
 
         self.PhotoMaxSize = 240
 
         self.createWidgets()
         self.frame.Show()
+        self.current_img = None
+
+    def update_current_img(self, current_img):
+        self.current_img = current_img
 
     def createWidgets(self):
         instructions = 'Browse for an image'
@@ -54,8 +60,12 @@ class PhotoCtrl(wx.App):
 
         self.mainSizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.my_btn = wx.Button(self.panel, label='Generate pdf')
+
+        self.my_btn = wx.Button(self.panel, label='Generate pdf', pos=(200, 0))
         self.my_btn.Bind(wx.EVT_BUTTON, self.on_press)
+
+        self.rotate_btn = wx.Button(self.panel, label='Rotate', pos=(10, 0))
+        self.rotate_btn.Bind(wx.EVT_BUTTON, self.rotate_on_press)
 
         self.mainSizer.Add(wx.StaticLine(self.panel, wx.ID_ANY),
                            0, wx.ALL|wx.EXPAND, 5)
@@ -70,6 +80,12 @@ class PhotoCtrl(wx.App):
 
         self.panel.Layout()
 
+    def rotate_on_press(self, event):
+        cover = Image.open(self.current_img)
+        cover = cover.rotate(-90, expand=True)
+        cover.save(self.current_img)
+        self.update_image_on_dnd(self.current_img)
+
     def on_press(self, event):
         name = 'mypdf'
         img_dir = os.getcwd()
@@ -77,7 +93,6 @@ class PhotoCtrl(wx.App):
         for imagePath in files:
             cover = Image.open(imagePath)
             width, height = cover.size
-            print(width, height)
             #cover = cover.rotate(-90, expand=True)
             if os.path.exists(filename):
                 cover.save(filename, append=True)
@@ -93,6 +108,7 @@ class PhotoCtrl(wx.App):
         if dialog.ShowModal() == wx.ID_OK:
             self.photoTxt.SetValue(dialog.GetPath())
         files.append(dialog.GetPath())
+        self.current_img = dialog.GetPath()
         dialog.Destroy() 
         self.onView()
 
@@ -102,6 +118,7 @@ class PhotoCtrl(wx.App):
     def onView(self, filepath=None):
         if not filepath:
             filepath = self.photoTxt.GetValue()
+        self.current_img = filepath
 
         img = wx.Image(filepath, wx.BITMAP_TYPE_ANY)
         # scale the image, preserving the aspect ratio
