@@ -55,7 +55,7 @@ class PhotoCtrl(wx.App):
 
         instructLbl = wx.StaticText(self.panel, label=instructions)
         self.photoTxt = wx.TextCtrl(self.panel, size=(200,-1))
-        browseBtn = wx.Button(self.panel, label='Browse')
+        browseBtn = wx.Button(self.panel, label='Browse', pos=(200, 50))
         browseBtn.Bind(wx.EVT_BUTTON, self.onBrowse)
 
         self.mainSizer = wx.BoxSizer(wx.VERTICAL)
